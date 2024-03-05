@@ -71,7 +71,7 @@ runs:
       shell: bash
       id: pr_id
       run: |
-        if [[ "${ inputs.skip-pr == "true" }" ]]; then
+        if [[ "${{ inputs.skip-pr == "true" }}" ]]; then
           echo "Skipping PR requirement"
           echo "skip-pr=true" >> $GITHUB_OUTPUT
           exit 0
