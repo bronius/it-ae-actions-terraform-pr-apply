@@ -122,19 +122,65 @@ runs:
         curl -Lo hcl2json $(curl -s https://api.github.com/repos/tmccombs/hcl2json/releases | jq -r '.[] | select(.tag_name == "v0.5.0").assets[] | select(.name == "hcl2json_linux_amd64").browser_download_url')
         chmod +x hcl2json
 
-        # Get s3 bucket and key by converting terraform backend config to json
+        # Parse local terraform to JSON to look for a backend config there, in something like main.tf
         json=$(./hcl2json *.tf)
+        s3_bucket=$(echo $json | jq -r '.terraform[0].backend.s3[0].bucket')
+        s3_key=$(echo $json | jq -r '.terraform[0].backend.s3[0].key')
 
-        [[ -z "${{ inputs.s3-bucket }}" ]] \
-          && s3_bucket=$(echo $json | jq -r '.terraform[0].backend.s3[0].bucket') \
-          || s3_bucket=${{ inputs.s3-bucket }}
+        # Are we using backend overrides? If so, parse those and override anything in local terraform.
+        inline_regex="\-backend\-config=\"?(.*=[^\"]*)\"?"    # Regex to match inline config, -backend-config="foo=bar"
+        file_regex="\-backend\-config=\"?(.*)\"?"             # Regex to match hcl file, -backend-config=backend.s3.tfbackend
 
-        [[ -z "${{ inputs.s3-key }}" ]] \
-          && s3_key=$(echo $json | jq -r '.terraform[0].backend.s3[0].key') \
-          || s3_key=${{ inputs.s3-key }}
+        # Function to parse HCL values
+        find_config_value () {
+          line=$1
+          regex="([^ ]*) *=[[:space:]]*\"?([^\" ]*)\"?"
+          if [[ $line =~ $regex ]]; then
+            case ${BASH_REMATCH[1]} in
+              bucket)
+                s3_bucket=${BASH_REMATCH[2]}
+                ;;
 
-        echo "S3 bucket: $s3_bucket"
-        echo "S3 key: $s3_key"
+              key)
+                s3_key=${BASH_REMATCH[2]}
+                ;;
+            esac
+          fi
+        }
+
+        # Split init string params by whitespace
+        configs=(${{ inputs.terraform-init-flags }})
+
+        # Iterate over the individual params
+        for i in ${configs[@]}; do
+          if [[ $i =~ $inline_regex ]]; then
+            value=${BASH_REMATCH[1]}
+            echo "Found an inline config value: $value"
+            find_config_value "$value"
+            continue
+          fi
+          
+          if [[ $i =~ $file_regex ]]; then
+            if [ -f ${BASH_REMATCH[1]} ]; then
+              file=${BASH_REMATCH[1]}
+              echo "Found a backend config file: $file"
+              while IFS= read -r line; do
+                find_config_value "$line"
+              done < $file
+              continue
+            fi
+          fi
+
+          echo "Could not determine backend values inside: $i"
+        done
+
+        # Finally, if any action inputs are given, those have highest precedence
+        [[ -n "${{ inputs.s3-bucket }}" ]] && s3_bucket="${{ inputs.s3-bucket }}"
+        [[ -n "${{ inputs.s3-key }}"    ]] && s3_key="${{ inputs.s3-key }}"
+
+        echo "Final values discovered"
+        echo "  S3 bucket: $s3_bucket"
+        echo "  S3 key:    $s3_key"
 
         # Generate s3 key name
         key="apply_logs/${{ github.repository }}/pr-${{ steps.pr_id.outputs.number }}/$(date -u +'%Y-%m-%d/apply-%Y-%m-%dT%H:%M:%SZ.log')"
