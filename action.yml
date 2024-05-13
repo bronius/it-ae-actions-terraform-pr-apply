@@ -32,6 +32,10 @@ inputs:
     default: ""
   s3-bucket:
     description: Override s3 bucket to upload output to. Defaults to the same as the state backend.
+  persist-apply-log:
+    description: Persist the terraform apply log in long-term storage, by default in the same location as your backend state.
+    required: false
+    default: "true"
     required: false
     default: ""
   s3-key:
@@ -115,6 +119,7 @@ runs:
 
     - name: Generate s3 key name
       id: s3
+      if: inputs.persist-apply-log == true
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
