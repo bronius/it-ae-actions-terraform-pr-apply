@@ -14,8 +14,7 @@ source ../copy_logs.sh
 
 # AWS S3
 
-working_directory="test-s3"
-
+working_directory="test-aws"
 bucket="my-terraform-state-bucket"
 
 test_name="S3 backend with all values from terraform"
