@@ -23,7 +23,8 @@ module "github_oidc" {
   ]
 
   managed_policy_arns = [
-    "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+    "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+    "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
   ]
 
   add_oidc_provider = false
