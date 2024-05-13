@@ -126,7 +126,7 @@ runs:
         touch apply.log
         echo "${{ steps.apply.outputs.stdout }}" >> apply.log
         echo "${{ steps.apply.outputs.stderr }}" >> apply.log
-        echo "filename=apply.log" >> $GITHUB_OUTPUT
+        echo "filepath=$(pwd)/apply.log" >> $GITHUB_OUTPUT
 
         EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
         echo "output<<$EOF" >> "$GITHUB_OUTPUT"
@@ -142,7 +142,7 @@ runs:
       run: |
 
         # Set value for the file to copy
-        source_file="${{ steps.output.outputs.filename }}"
+        source_file="${{ steps.output.outputs.filepath }}"
 
         # Set value for the key prefix
         [[ -n "${{ inputs.key-prefix }}" ]] && key_prefix="${{ inputs.key-prefix }}" || key_prefix="apply_logs"
