@@ -30,12 +30,12 @@ inputs:
     description: CLI flags to use with terraform apply
     required: false
     default: ""
-  s3-bucket:
-    description: Override s3 bucket to upload output to. Defaults to the same as the state backend.
   persist-apply-log:
     description: Persist the terraform apply log in long-term storage, by default in the same location as your backend state.
     required: false
     default: "true"
+  bucket:
+    description: Override the bucket name for s3 and gcs to upload output to. Defaults to the same as the state backend, if using s3 or gcp
     required: false
     default: ""
   s3-key:
