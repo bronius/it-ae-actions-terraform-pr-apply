@@ -130,41 +130,33 @@ runs:
 
         echo "summary=$(cat apply.log | grep 'Apply complete')" >> "$GITHUB_OUTPUT"
 
-    - name: Generate s3 key name
-      id: s3
+    - name: Copy logs to persistent storage
+      id: copy_logs
       if: inputs.persist-apply-log == true
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
       run: |
-        # Download hcl2json
-        curl -Lo hcl2json $(curl -s https://api.github.com/repos/tmccombs/hcl2json/releases | jq -r '.[] | select(.tag_name == "v0.5.0").assets[] | select(.name == "hcl2json_linux_amd64").browser_download_url')
-        chmod +x hcl2json
 
-        # Get s3 bucket and key by converting terraform backend config to json
-        json=$(./hcl2json *.tf)
+        # Set value for the file to copy
+        source_file="${{ steps.output.outputs.filename }}"
 
-        [[ -z "${{ inputs.s3-bucket }}" ]] \
-          && s3_bucket=$(echo $json | jq -r '.terraform[0].backend.s3[0].bucket') \
-          || s3_bucket=${{ inputs.s3-bucket }}
+        # Set value for the key prefix
+        [[ -n "${{ inputs.key-prefix }}" ]] && key_prefix="${{ inputs.key-prefix }}" || key_prefix="apply_logs"
 
-        [[ -z "${{ inputs.s3-key }}" ]] \
-          && s3_key=$(echo $json | jq -r '.terraform[0].backend.s3[0].key') \
-          || s3_key=${{ inputs.s3-key }}
+        # Set value for the key name
+        [[ -n "${{ inputs.key-name }}" ]] && key_name="${{ inputs.key-name }}" || key_name="${{ github.repository }}/pr-${{ steps.pr_id.outputs.number }}/$(date -u +'%Y-%m-%d/apply-%Y-%m-%dT%H:%M:%SZ.log')"
 
-        echo "S3 bucket: $s3_bucket"
-        echo "S3 key: $s3_key"
+        # Where to find the terraform
+        working_directory="${{ inputs.working-directory }}"
 
-        # Generate s3 key name
-        key="apply_logs/${{ github.repository }}/pr-${{ steps.pr_id.outputs.number }}/$(date -u +'%Y-%m-%d/apply-%Y-%m-%dT%H:%M:%SZ.log')"
-        echo "S3 key name: $key"
+        copy_logs
+        status=$?
 
-        # Copy terraform apply log to s3
-        s3_url="s3://${s3_bucket}/${s3_key}/${key}"
-        aws s3 cp ${{ steps.output.outputs.filename }} $s3_url
-
-        echo "s3_bucket=$s3_bucket" >> $GITHUB_OUTPUT
-        echo "s3_key=$s3_key/$key" >> $GITHUB_OUTPUT
-        echo "s3_url=$s3_url" >> $GITHUB_OUTPUT
+        if [ $status == 0 ]; then
+          echo ${{ steps.copy_logs.outputs.output }}
+        else
+          echo "Wasn't apply to persist apply logs"
+          return $status
+        fi
 
     - name: Comment Apply output to PR
       id: comment-apply
