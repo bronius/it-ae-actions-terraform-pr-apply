@@ -167,7 +167,7 @@ runs:
         body: |
           Terraform Apply: ${{ steps.output.outputs.summary }}
 
-          Full log persisted at: [${{ steps.s3.outputs.s3_url}}](https://s3.console.aws.amazon.com/s3/object/${{ steps.s3.outputs.s3_bucket }}?prefix=${{ steps.s3.outputs.s3_key}})
+          ${{ steps.copy_logs.outputs.output}}
 
           <details open><summary>Show Output</summary>
 
@@ -187,7 +187,7 @@ runs:
 
             Please review the logs and take appropriate action.
 
-            Full log persisted at: [${{ steps.s3.outputs.s3_url}}](https://s3.console.aws.amazon.com/s3/object/${{ steps.s3.outputs.s3_bucket }}?prefix=${{ steps.s3.outputs.s3_key}})
+            ${{ steps.copy_logs.outputs.output}}
 
             <details open><summary>Show Output</summary>
 
