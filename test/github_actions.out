@@ -1,0 +1,5 @@
+backend_type=azurerm
+resource_group_name=my-resource-group
+storage_account_name=my-storage-account
+key=apply_logs/override-key-name
+container=my-storage-container
