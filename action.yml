@@ -80,14 +80,14 @@ runs:
   using: composite
   steps:
     - name: Find if this push belonged to a PR
-      if: (github.event_name == 'push') && (inputs.no_pr != 'true')
+      if: (github.event_name == 'push') && (inputs.no-pr != 'true')
       uses: 8BitJonny/gh-get-current-pr@2.2.0
       id: pr
 
     - name: Consolidate PR ID
       shell: bash
       id: pr_id
-      if: inputs.no_pr != 'true'
+      if: inputs.no-pr != 'true'
       run: |
         if [[ "${{ github.event_name }}" == "push" ]]; then
           if [[ "${{ steps.pr.outputs.pr_found }}" == "false" ]]; then
@@ -166,7 +166,7 @@ runs:
     - name: Comment Apply output to PR
       id: comment-apply
       uses: peter-evans/create-or-update-comment@v2
-      if: inputs.no_pr != 'true'
+      if: inputs.no-pr != 'true'
       with:
         token: ${{ inputs.GITHUB_TOKEN }}
         issue-number: ${{ steps.pr_id.outputs.number }}
