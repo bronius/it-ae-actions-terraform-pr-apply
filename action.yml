@@ -71,9 +71,6 @@ outputs:
   apply_output:
     description: The terraform apply output
     value: ${{ steps.output.outputs.output }}
-  s3_path:
-    description: The S3 URL of the uploaded log file
-    value: ${{ steps.s3.outputs.s3_url }}
 
 runs:
   using: composite
