@@ -38,8 +38,12 @@ inputs:
     description: Override the bucket name for s3 and gcs to upload output to. Defaults to the same as the state backend, if using s3 or gcp
     required: false
     default: ""
-  s3-key:
-    description: Override s3 object key to upload output to. Defaults to a subdirectory of the statefile key.
+  key-path:
+    description: Override the path to upload output to. Defaults to the root.
+    required: false
+    default: ""
+  key-name:
+    description: Override the filename portion of the key. Defaults to a path merge of the github repo, PR ID, and a timestamp
     required: false
     default: ""
   pr-id:
