@@ -2,10 +2,60 @@ name: Test This Composite Action
 on:
   workflow_dispatch:
 
+
+env:
+  AWS_ROLE: "arn:aws:iam::241033177617:role/allow-test-repo"
+  AWS_REGION: "us-east-1"
+  AZURE_CLIENT_ID: 
+  AZURE_SUBSCRIPTION_ID:
+  AZURE_TENANT_ID: 
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read  # This is required for actions/checkout
+
 jobs:
-  test-case:
+  test-action:
     runs-on: ubuntu-latest
     steps:
-      - uses: tamu-edu/it-ae-actions-pullrequest-tfapply@test
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v3
         with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          role-to-assume: "${{ env.AWS_ROLE }}"
+          role-session-name: test-action-session
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Test actions with an AWS backend
+        uses: ./ # Uses an action in the root directory
+        with:
+          working-directory: test/test-aws
+          no-pr: true
+
+      - name: Cleanup AWS test
+        working-directory: test/test-aws
+        run: |
+          terraform destroy -auto-approve
+
+      # - name: 'Az CLI login'
+      #   uses: azure/login@v1
+      #   with:
+      #     client-id: ${{ env.AZURE_CLIENT_ID }}
+      #     tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+      #     subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      # - id: 'auth'
+      #   name: 'Authenticate to GCP'
+      #   uses: 'google-github-actions/auth@v0.3.1'
+      #   with:
+      #       create_credentials_file: 'true'
+      #       workload_identity_provider: '<example-workload-identity-provider>'
+      #       service_account: '<example-service-account>'
+      # - id: 'gcloud'
+      #   name: 'gcloud'
+      #   run: |-
+      #     gcloud auth login --brief --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
+      #     gcloud services list
