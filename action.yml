@@ -38,6 +38,18 @@ inputs:
     description: Override the bucket name for s3 and gcs to upload output to. Defaults to the same as the state backend, if using s3 or gcp
     required: false
     default: ""
+  resource-group-name:
+    description: Override the azurerm resource group to upload output to.
+    required: false
+    default: ""
+  storage-account-name:
+    description: Override the storage account to use to upload output. Defaults to the same as the azurerm backend, if using azurerm.
+    required: false
+    default: ""
+  container-name:
+    description: Override the container into which to upload the output. Defaults to the same as the azurerm backend, if using azurerm.
+    required: false
+    default: ""
   key-path:
     description: Override the path to upload output to. Defaults to the root.
     required: false
