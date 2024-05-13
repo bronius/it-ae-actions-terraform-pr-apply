@@ -5,7 +5,6 @@ dryrun=true
 source_file="apply_logs.txt"
 # [[ -n "${{ inputs.key-prefix }}" ]] && key_prefix="${{ inputs.key-prefix }}" || key_prefix="apply_logs"
 key_prefix="apply_logs"
-bucket="my-terraform-state-bucket"
 #  [[ -n "${{ inputs.key-name }}" ]] && key_name="${{ inputs.key-name }}" || key_name="${{ github.repository }}/pr-${{ steps.pr_id.outputs.number }}/$(date -u +'%Y-%m-%d/apply-%Y-%m-%dT%H:%M:%SZ.log')"
 key_name="tamu-edu/test-repo/pr-21/$(date -u +'%Y-%m-%d/apply-%Y-%m-%dT%H:%M:%SZ.log')"
 
@@ -19,6 +18,7 @@ source ../copy_logs.sh
 
 working_directory="test-s3"
 
+bucket="my-terraform-state-bucket"
 
 test_name="S3 backend with all values from terraform"
 output=$(copy_logs)
