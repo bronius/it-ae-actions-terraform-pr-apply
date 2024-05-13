@@ -12,5 +12,4 @@ module "state_backend" {
 
   storage_account_name = "itaeactionstfapply"
   container_name       = "itaeactionstfapply"
-  location             = "southcentralus"
 }
