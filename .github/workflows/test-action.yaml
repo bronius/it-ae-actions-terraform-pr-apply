@@ -6,9 +6,9 @@ on:
 env:
   AWS_ROLE: "arn:aws:iam::241033177617:role/allow-test-repo"
   AWS_REGION: "us-east-1"
-  AZURE_CLIENT_ID: 
-  AZURE_SUBSCRIPTION_ID:
-  AZURE_TENANT_ID: 
+  AZURE_CLIENT_ID: "03b75287-e30e-4ac5-813b-ca074c26a325"
+  AZURE_SUBSCRIPTION_ID: "a267dbd7-a0ac-4f3e-a310-6bb813ff3078"
+  AZURE_TENANT_ID: "68f381e3-46da-47b9-ba57-6f322b8f0da1"
 
 permissions:
   id-token: write # This is required for requesting the JWT
@@ -40,12 +40,23 @@ jobs:
         run: |
           terraform destroy -auto-approve
 
-      # - name: 'Az CLI login'
-      #   uses: azure/login@v1
-      #   with:
-      #     client-id: ${{ env.AZURE_CLIENT_ID }}
-      #     tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-      #     subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+      - name: 'Az CLI login'
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Test actions with an Azure backend
+        uses: ./ # Uses an action in the root directory
+        with:
+          working-directory: test/test-azure
+          no-pr: true
+
+      - name: Cleanup Azure test
+        working-directory: test/test-azure
+        run: |
+          terraform destroy -auto-approve
 
       # - id: 'auth'
       #   name: 'Authenticate to GCP'
