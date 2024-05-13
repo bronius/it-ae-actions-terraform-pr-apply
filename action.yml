@@ -153,6 +153,9 @@ runs:
         # Where to find the terraform
         working_directory="${{ inputs.working-directory }}"
 
+        # Load copy logs script
+        source "./copy_logs.sh"
+
         copy_logs
         status=$?
 
