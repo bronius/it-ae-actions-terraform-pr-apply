@@ -7,16 +7,19 @@ terraform {
   }
 
   backend "azurerm" {
-    resource_group_name  = "itaeactionstfapply"
+    resource_group_name  = "terraform-state"
     storage_account_name = "itaeactionstfapply"
     container_name       = "itaeactionstfapply"
-    location             = "southcentralus"
+    key                  = "terraform.tfstate"
   }
+}
+provider "azurerm" {
+  features {}
 }
 
 resource "azurerm_storage_account" "test_storage_account" {
   name                     = "itaeactionstfapplytest"
-  resource_group_name      = "itaeactionstfapplytest"
+  resource_group_name      = "terraform-state"
   location                 = "southcentralus"
   account_tier             = "Standard"
   account_replication_type = "LRS"
