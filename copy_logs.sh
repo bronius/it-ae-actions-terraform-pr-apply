@@ -36,9 +36,9 @@ copy_logs () {
       ;;
 
     azurerm)
-      [[ -z $resource_group_name ]]  && resource_group_name=$(jq -r '.backend.config.bucket' $backend_config)
-      [[ -z $storage_account_name ]] && storage_account_name=$(jq -r '.backend.config.bucket' $backend_config)
-      [[ -z $container ]]            && container=$(jq -r '.backend.config.bucket' $backend_config)
+      [[ -z $resource_group_name ]]  && resource_group_name=$(jq -r '.backend.config.resource_group_name' $backend_config)
+      [[ -z $storage_account_name ]] && storage_account_name=$(jq -r '.backend.config.storage_account_name' $backend_config)
+      [[ -z $container ]]            && container=$(jq -r '.backend.config.container_name' $backend_config)
 
       output="Copying apply log to Azure at $storage_account_name / $container at $key"
       echo $output
