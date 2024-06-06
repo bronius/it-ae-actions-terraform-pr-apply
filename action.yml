@@ -97,13 +97,16 @@ runs:
       continue-on-error: true
 
     - name: Write Apply output to file
+      uses: frdrwrt/write-to-file@v1.3
+      with:
+        filepath: "${{ inputs.working-directory }}/apply.log"
+        content: "${{ steps.apply.outputs.stdout }}\n${{ steps.apply.outputs.stderr }}"
+
+    - name: Write Apply output to file
       id: output
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
-        touch apply.log
-        echo "${{ steps.apply.outputs.stdout }}" >> apply.log
-        echo "${{ steps.apply.outputs.stderr }}" >> apply.log
         echo "filename=apply.log" >> $GITHUB_OUTPUT
 
         EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
