@@ -154,7 +154,7 @@ runs:
         working_directory="${{ inputs.working-directory }}"
 
         # Load copy logs script
-        source "./copy_logs.sh"
+        source "${{github.action_path}}/copy_logs.sh"
 
         copy_logs
         status=$?
