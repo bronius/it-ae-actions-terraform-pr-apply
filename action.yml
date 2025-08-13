@@ -107,11 +107,10 @@ runs:
         echo "filename=apply.log" >> $GITHUB_OUTPUT
 
         EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-        echo "output<<$EOF" >> "$GITHUB_OUTPUT"
-        cat apply.log >> "$GITHUB_OUTPUT"
-        echo "$EOF" >> "$GITHUB_OUTPUT"
-
-        echo "summary=$(cat apply.log | grep 'Apply complete')" >> "$GITHUB_OUTPUT"
+        summary=$(grep 'Apply complete' apply.log)
+        echo "summary<<EOF" >> "$GITHUB_OUTPUT"
+        echo "$summary" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
 
     - name: Generate s3 key name
       id: s3
