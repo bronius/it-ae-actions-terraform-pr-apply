@@ -107,7 +107,7 @@ runs:
         echo "filename=apply.log" >> $GITHUB_OUTPUT
 
         EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-        summary=$(grep 'Apply complete' apply.log)
+        summary=$(grep "Apply complete" apply.log)
         echo "summary<<$EOF" >> "$GITHUB_OUTPUT"
         echo "$summary" >> "$GITHUB_OUTPUT"
         echo "$EOF" >> "$GITHUB_OUTPUT"
