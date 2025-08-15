@@ -102,8 +102,17 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: |
         touch apply.log
-        echo "${{ steps.apply.outputs.stdout }}" >> apply.log
-        echo "${{ steps.apply.outputs.stderr }}" >> apply.log
+
+        # Create a proper shell-safe version of stdout and stderr
+        # This avoids issues with special characters in the output
+        cat << 'TFOUTPUT' >> apply.log
+${{ steps.apply.outputs.stdout }}
+TFOUTPUT
+
+        cat << 'TFERROR' >> apply.log
+${{ steps.apply.outputs.stderr }}
+TFERROR
+
         echo "filename=apply.log" >> $GITHUB_OUTPUT
 
         EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
