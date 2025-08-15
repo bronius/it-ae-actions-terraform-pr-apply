@@ -104,8 +104,9 @@ runs:
         EXIT_CODE=$?
 
         # Base64 encode stdout and stderr to safely pass them between steps
-        echo "stdout=$(cat "$stdout_file" | base64 -w 0)" >> $GITHUB_OUTPUT
-        echo "stderr=$(cat "$stderr_file" | base64 -w 0)" >> $GITHUB_OUTPUT
+        # Using encoded_stdout and encoded_stderr to differentiate from actual stdout/stderr
+        echo "encoded_stdout=$(cat "$stdout_file" | base64 -w 0)" >> $GITHUB_OUTPUT
+        echo "encoded_stderr=$(cat "$stderr_file" | base64 -w 0)" >> $GITHUB_OUTPUT
 
         # Display output for visibility during the run
         cat "$stdout_file"
@@ -126,8 +127,8 @@ runs:
 
         # Decode the base64-encoded outputs and write to log file
         # This prevents shell interpretation issues since base64 only contains safe characters
-        echo "${{ steps.apply.outputs.stdout }}" | base64 --decode >> apply.log
-        echo "${{ steps.apply.outputs.stderr }}" | base64 --decode >> apply.log
+        echo "${{ steps.apply.outputs.encoded_stdout }}" | base64 --decode >> apply.log
+        echo "${{ steps.apply.outputs.encoded_stderr }}" | base64 --decode >> apply.log
 
         echo "filename=apply.log" >> $GITHUB_OUTPUT
 
