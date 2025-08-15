@@ -103,15 +103,10 @@ runs:
       run: |
         touch apply.log
 
-        # Create a proper shell-safe version of stdout and stderr
-        # This avoids issues with special characters in the output
-        cat << 'TFOUTPUT' >> apply.log
-${{ steps.apply.outputs.stdout }}
-TFOUTPUT
-
-        cat << 'TFERROR' >> apply.log
-${{ steps.apply.outputs.stderr }}
-TFERROR
+        # Safely escape problematic characters in outputs
+        # Convert stdout and stderr to file using printf and %q to escape shell metacharacters
+        printf '%s\n' "${{ steps.apply.outputs.stdout }}" | sed 's/(/\\(/g; s/)/\\)/g; s/\$/\\$/g; s/`/\\`/g; s/"/\\"/g' >> apply.log
+        printf '%s\n' "${{ steps.apply.outputs.stderr }}" | sed 's/(/\\(/g; s/)/\\)/g; s/\$/\\$/g; s/`/\\`/g; s/"/\\"/g' >> apply.log
 
         echo "filename=apply.log" >> $GITHUB_OUTPUT
 
