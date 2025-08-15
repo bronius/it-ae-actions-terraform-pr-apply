@@ -92,8 +92,16 @@ runs:
       env:
         TF_WORKSPACE: ${{ inputs.terraform-workspace }}
       run: |
+        # Run terraform and immediately base64 encode the outputs to avoid shell interpretation issues
         terraform init ${{ inputs.terraform-init-flags }}
-        terraform apply -input=false -no-color ${{ inputs.auto-approve == 'true' && '-auto-approve' || '' }} ${{ inputs.terraform-apply-flags }}
+        APPLY_RESULT=$(terraform apply -input=false -no-color ${{ inputs.auto-approve == 'true' && '-auto-approve' || '' }} ${{ inputs.terraform-apply-flags }} 2> >(tee /dev/stderr))
+        EXIT_CODE=$?
+        
+        # Base64 encode stdout and stderr to safely pass them between steps
+        echo "stdout=$(echo "$APPLY_RESULT" | base64 -w 0)" >> $GITHUB_OUTPUT
+        echo "stderr=$(cat /dev/stderr | base64 -w 0)" >> $GITHUB_OUTPUT
+        
+        exit $EXIT_CODE
       continue-on-error: true
 
     - name: Write Apply output to file
@@ -103,10 +111,10 @@ runs:
       run: |
         touch apply.log
 
-        # Safely escape problematic characters in outputs
-        # Convert stdout and stderr to file using printf and %q to escape shell metacharacters
-        printf '%s\n' "${{ steps.apply.outputs.stdout }}" | sed 's/(/\\(/g; s/)/\\)/g; s/\$/\\$/g; s/`/\\`/g; s/"/\\"/g' >> apply.log
-        printf '%s\n' "${{ steps.apply.outputs.stderr }}" | sed 's/(/\\(/g; s/)/\\)/g; s/\$/\\$/g; s/`/\\`/g; s/"/\\"/g' >> apply.log
+        # Decode the base64-encoded outputs and write to log file
+        # This prevents shell interpretation issues since base64 only contains safe characters
+        echo "${{ steps.apply.outputs.stdout }}" | base64 --decode >> apply.log
+        echo "${{ steps.apply.outputs.stderr }}" | base64 --decode >> apply.log
 
         echo "filename=apply.log" >> $GITHUB_OUTPUT
 
