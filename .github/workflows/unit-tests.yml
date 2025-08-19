@@ -1,6 +1,9 @@
 name: Unit Test Suite
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - bugfix/improve-unescaped-output-processing
 
 jobs:
   core-functionality-tests:
