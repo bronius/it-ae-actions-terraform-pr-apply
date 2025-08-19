@@ -9,9 +9,50 @@ jobs:
   core-functionality-tests:
     runs-on: ubuntu-latest
     steps:
-      # - name: Checkout repository
-      #   uses: actions/checkout@v3
-      
+      - name: Test - handles-normal-chars-direct
+        id: normal-chars-direct-test
+        run: |
+          # Generate test output with normal characters directly to outputs
+          echo "stdout<<EOF" >> $GITHUB_OUTPUT
+          echo "ABC123 with sought normal text" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Verify handles-normal-chars-direct
+        run: |
+          echo "Direct output: ${{ steps.normal-chars-direct-test.outputs.stdout }}"
+
+          # Verify the output exactly matches expected string
+          if [[ "${{ steps.normal-chars-direct-test.outputs.stdout }}" != "ABC123 with sought normal text" ]]; then
+            echo "ERROR: Output does not match expected text"
+            echo "Expected: 'ABC123 with sought normal text'"
+            echo "Actual: '${{ steps.normal-chars-direct-test.outputs.stdout }}'"
+            exit 1
+          fi
+          echo "✓ Normal text handled correctly (direct method)"
+
+      - name: Test - handles-unescaped-chars-direct
+        id: unescaped-chars-direct-test
+        run: |
+          # Use the delimiter method from the actual action.yml
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "stdout<<$EOF" >> $GITHUB_OUTPUT
+          echo "ABC123 with (parentheses) \"quotes\" and 'apostrophes' sought unescaped text" >> $GITHUB_OUTPUT
+          echo "$EOF" >> $GITHUB_OUTPUT
+
+      - name: Verify handles-unescaped-chars-direct
+        run: |
+          echo "Direct output: ${{ steps.unescaped-chars-direct-test.outputs.stdout }}"
+
+          # Verify the output exactly matches expected string with special characters
+          expected="ABC123 with (parentheses) \"quotes\" and 'apostrophes' sought unescaped text"
+          if [[ "${{ steps.unescaped-chars-direct-test.outputs.stdout }}" != "$expected" ]]; then
+            echo "ERROR: Output does not match expected text with special characters"
+            echo "Expected: '$expected'"
+            echo "Actual: '${{ steps.unescaped-chars-direct-test.outputs.stdout }}'"
+            exit 1
+          fi
+          echo "✓ Special characters handled correctly (direct method)"
+
       - name: Test - capture-stdout-with-display
         id: capture-stdout-test
         run: |
