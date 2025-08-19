@@ -92,8 +92,30 @@ runs:
       env:
         TF_WORKSPACE: ${{ inputs.terraform-workspace }}
       run: |
+        # Run terraform and capture stdout/stderr to files first
         terraform init ${{ inputs.terraform-init-flags }}
-        terraform apply -input=false -no-color ${{ inputs.auto-approve == 'true' && '-auto-approve' || '' }} ${{ inputs.terraform-apply-flags }}
+
+        # Create temporary files for stdout and stderr
+        stdout_file=$(mktemp)
+        stderr_file=$(mktemp)
+
+        # Run terraform with outputs redirected to files
+        terraform apply -input=false -no-color ${{ inputs.auto-approve == 'true' && '-auto-approve' || '' }} ${{ inputs.terraform-apply-flags }} > "$stdout_file" 2> "$stderr_file"
+        EXIT_CODE=$?
+
+        # Base64 encode stdout and stderr to safely pass them between steps
+        # Using encoded_stdout and encoded_stderr to differentiate from actual stdout/stderr
+        echo "encoded_stdout=$(cat "$stdout_file" | base64 -w 0)" >> $GITHUB_OUTPUT
+        echo "encoded_stderr=$(cat "$stderr_file" | base64 -w 0)" >> $GITHUB_OUTPUT
+
+        # Display output for visibility during the run
+        cat "$stdout_file"
+        cat "$stderr_file" >&2
+
+        # Clean up temp files
+        rm -f "$stdout_file" "$stderr_file"
+
+        exit $EXIT_CODE
       continue-on-error: true
 
     - name: Write Apply output to file
@@ -102,16 +124,19 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: |
         touch apply.log
-        echo "${{ steps.apply.outputs.stdout }}" >> apply.log
-        echo "${{ steps.apply.outputs.stderr }}" >> apply.log
+
+        # Decode the base64-encoded outputs and write to log file
+        # This prevents shell interpretation issues since base64 only contains safe characters
+        echo "${{ steps.apply.outputs.encoded_stdout }}" | base64 --decode >> apply.log
+        echo "${{ steps.apply.outputs.encoded_stderr }}" | base64 --decode >> apply.log
+
         echo "filename=apply.log" >> $GITHUB_OUTPUT
 
         EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-        echo "output<<$EOF" >> "$GITHUB_OUTPUT"
-        cat apply.log >> "$GITHUB_OUTPUT"
+        summary=$(grep "Apply complete" apply.log)
+        echo "summary<<$EOF" >> "$GITHUB_OUTPUT"
+        echo "$summary" >> "$GITHUB_OUTPUT"
         echo "$EOF" >> "$GITHUB_OUTPUT"
-
-        echo "summary=$(cat apply.log | grep 'Apply complete')" >> "$GITHUB_OUTPUT"
 
     - name: Generate s3 key name
       id: s3

@@ -1,0 +1,116 @@
+name: Unit Test Suite
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - bugfix/improve-unescaped-output-processing
+
+jobs:
+  core-functionality-tests:
+    runs-on: ubuntu-latest
+    steps:
+      # - name: Checkout repository
+      #   uses: actions/checkout@v3
+      
+      - name: Test - capture-stdout-with-display
+        id: capture-stdout-test
+        run: |
+          # Create temporary files for stdout and stderr
+          stdout_file=$(mktemp)
+          stderr_file=$(mktemp)
+          
+          # Run a simple command and capture output while also displaying it (like a tee)
+          echo "ABC123" | tee "$stdout_file" 2> "$stderr_file"
+          echo "Error test" >&2 | tee "$stderr_file" >/dev/null
+          
+          # Base64 encode for safe output variable handling
+          echo "encoded_stdout=$(cat "$stdout_file" | base64 -w 0)" >> $GITHUB_OUTPUT
+          echo "encoded_stderr=$(cat "$stderr_file" | base64 -w 0)" >> $GITHUB_OUTPUT
+          
+          echo "--- Displaying captured stdout/stderr ---"
+          echo "STDOUT: $(cat "$stdout_file")"
+          echo "STDERR: $(cat "$stderr_file")"
+          
+          # Clean up
+          rm -f "$stdout_file" "$stderr_file"
+      
+      - name: Verify capture-stdout-with-display
+        run: |
+          # Decode the captured output
+          decoded_stdout=$(echo "${{ steps.capture-stdout-test.outputs.encoded_stdout }}" | base64 -d)
+          
+          echo "Decoded stdout: $decoded_stdout"
+          
+          # Verify the output contains expected string
+          if [[ "$decoded_stdout" != *"ABC123"* ]]; then
+            echo "ERROR: Expected 'ABC123' in captured stdout"
+            exit 1
+          fi
+          echo "✓ Stdout correctly captured and contains expected text"
+
+      - name: Test - handles-normal-chars
+        id: normal-chars-test
+        run: |
+          # Create temporary file for stdout
+          stdout_file=$(mktemp)
+          
+          # Generate test output with normal characters
+          echo "ABC123 with sought normal text" > "$stdout_file"
+          
+          # Base64 encode for safe output variable handling
+          echo "encoded_output=$(cat "$stdout_file" | base64 -w 0)" >> $GITHUB_OUTPUT
+          
+          # Clean up
+          rm -f "$stdout_file"
+      
+      - name: Verify handles-normal-chars
+        run: |
+          # Decode the captured output
+          decoded_output=$(echo "${{ steps.normal-chars-test.outputs.encoded_output }}" | base64 -d)
+          
+          echo "Decoded output: $decoded_output"
+          
+          # Verify the output exactly matches expected string
+          if [[ "$decoded_output" != "ABC123 with sought normal text" ]]; then
+            echo "ERROR: Output does not match expected text"
+            echo "Expected: 'ABC123 with sought normal text'"
+            echo "Actual: '$decoded_output'"
+            exit 1
+          fi
+          echo "✓ Normal text handled correctly"
+      
+      - name: Test - handles-unescaped-chars
+        id: unescaped-chars-test
+        run: |
+          # Create temporary file for stdout
+          stdout_file=$(mktemp)
+          
+          # Generate test output with special characters that might need escaping
+          echo "ABC123 with (parentheses) \"quotes\" and 'apostrophes' sought unescaped text" > "$stdout_file"
+          
+          # Base64 encode for safe output variable handling
+          echo "encoded_output=$(cat "$stdout_file" | base64 -w 0)" >> $GITHUB_OUTPUT
+          
+          # Clean up
+          rm -f "$stdout_file"
+      
+      - name: Verify handles-unescaped-chars
+        run: |
+          # Decode the captured output
+          decoded_output=$(echo "${{ steps.unescaped-chars-test.outputs.encoded_output }}" | base64 -d)
+          
+          echo "Decoded output: $decoded_output"
+          
+          # Verify the output exactly matches expected string with special characters
+          expected="ABC123 with (parentheses) \"quotes\" and 'apostrophes' sought unescaped text"
+          if [[ "$decoded_output" != "$expected" ]]; then
+            echo "ERROR: Output does not match expected text with special characters"
+            echo "Expected: '$expected'"
+            echo "Actual: '$decoded_output'"
+            exit 1
+          fi
+          echo "✓ Special characters handled correctly"
+      
+      - name: Report test results
+        run: |
+          echo "All tests completed successfully!"
