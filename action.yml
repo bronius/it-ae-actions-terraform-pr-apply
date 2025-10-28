@@ -91,32 +91,32 @@ runs:
       id: tf-via-pr
       uses: OP5dev/TF-via-PR@v13.7.1
       with:
-        # Core command - this does plan + apply internally
+        # Core command
         command: apply
 
-        # Directory and workspace
-        path: ${{ inputs.working-directory }}
-        terraform_workspace: ${{ inputs.terraform-workspace }}
+        # Directory and workspace (using correct parameter names)
+        working-directory: ${{ inputs.working-directory }}
 
-        # GitHub integration
-        github_token: ${{ inputs.GITHUB_TOKEN }}
-        pull_request_id: ${{ steps.pr_id.outputs.number }}
-        comment_pr: "true"
+        # GitHub integration (using correct parameter names)
+        token: ${{ inputs.GITHUB_TOKEN }}
+        pr-number: ${{ steps.pr_id.outputs.number }}
+        comment-pr: always
 
-        # Terraform configuration
-        terraform_version: ${{ inputs.terraform-version }}
-        terraform_init_cli_options: ${{ inputs.terraform-init-flags }}
-        terraform_apply_cli_options: ${{ inputs.terraform-apply-flags }}
+        # Auto-approval (using arg- prefix)
+        arg-auto-approve: ${{ inputs.auto-approve == 'true' && 'true' || 'false' }}
 
-        # Auto-approval
-        auto_approve: ${{ inputs.auto-approve }}
+        # Working directory argument
+        arg-chdir: ${{ inputs.working-directory }}
 
-        # S3 configuration (if you want persistence)
-        s3_bucket_name: ${{ inputs.s3-bucket }}
-        s3_object_key: ${{ inputs.s3-key }}
+        # Plan handling - key fix here
+        upload-plan: false
+        preserve-plan: false
+        plan-file: ""
 
-        # Output handling
-        continue_on_error: "true"
+        # Output formatting
+        format: false
+        expand-diff: false
+        expand-summary: false
 
     - name: Debug with TMATE if the debug environment variable is set to "true" and something failed
       if: ${{ failure() && inputs.debug == 'true' }}
