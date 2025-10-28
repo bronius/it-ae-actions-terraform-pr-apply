@@ -13,13 +13,13 @@ inputs:
   working-directory:
     description: Working directory for the `run` actions
     required: false
-    default: ''
+    default: ""
   terraform-version:
     description: Version of terraform to install
     required: false
     default: latest
   terraform-workspace:
-    description: Terraform workspace to select. Must already exist 
+    description: Terraform workspace to select. Must already exist
     required: false
     default: default
   terraform-init-flags:
@@ -50,16 +50,16 @@ inputs:
 outputs:
   apply_output:
     description: The terraform apply output
-    value: ${{ steps.output.outputs.output }}
+    value: ${{ steps.tf-via-pr.outputs.tf_output }}
   s3_path:
     description: The S3 URL of the uploaded log file
-    value: ${{ steps.s3.outputs.s3_url }}
+    value: ${{ steps.tf-via-pr.outputs.s3_url }}
 
 runs:
   using: composite
   steps:
     - name: Find if this push belonged to a PR
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && inputs.pr-id == ''
       uses: 8BitJonny/gh-get-current-pr@2.2.0
       id: pr
 
@@ -67,165 +67,50 @@ runs:
       shell: bash
       id: pr_id
       run: |
-        if [[ "${{ github.event_name }}" == "push" ]]; then
+        if [[ "${{ inputs.pr-id }}" != "" ]]; then
+          number=${{ inputs.pr-id }}
+        elif [[ "${{ github.event_name }}" == "push" ]]; then
           if [[ "${{ steps.pr.outputs.pr_found }}" == "false" ]]; then
             echo "No PR found for this workflow run. Exiting."
             exit 1
           fi
           number=${{ steps.pr.outputs.number }}
         else
-          number=${{ inputs.pr-id }}
+          number=${{ github.event.number }}
         fi
 
         echo "number=$number" >> $GITHUB_OUTPUT
         echo "This workflow run is associated with pull request ID: $number"
 
-    - name: setup Terraform
-      uses: hashicorp/setup-terraform@v2
+    - name: Run Terraform via PR
+      id: tf-via-pr
+      uses: OP5dev/TF-via-PR@v13.7.1
       with:
+        apply: "true"
+        path: ${{ inputs.working-directory }}
+
         terraform_version: ${{ inputs.terraform-version }}
+        terraform_workspace: ${{ inputs.terraform-workspace }}
+        terraform_init_cli_options: ${{ inputs.terraform-init-flags }}
+        terraform_apply_cli_options: ${{ inputs.terraform-apply-flags }}
 
-    - name: Terraform Apply
-      id: apply
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      env:
-        TF_WORKSPACE: ${{ inputs.terraform-workspace }}
-      run: |
-        # Run terraform and capture stdout/stderr to files first
-        terraform init ${{ inputs.terraform-init-flags }}
+        auto_approve: ${{ inputs.auto-approve }}
 
-        # Create temporary files for stdout and stderr
-        stdout_file=$(mktemp)
-        stderr_file=$(mktemp)
+        github_token: ${{ inputs.GITHUB_TOKEN }}
+        pull_request_id: ${{ steps.pr_id.outputs.number }}
 
-        # Run terraform with outputs redirected to files
-        terraform apply -input=false -no-color ${{ inputs.auto-approve == 'true' && '-auto-approve' || '' }} ${{ inputs.terraform-apply-flags }} > "$stdout_file" 2> "$stderr_file"
-        EXIT_CODE=$?
+        s3_bucket_name: ${{ inputs.s3-bucket }}
+        s3_object_key: ${{ inputs.s3-key }}
 
-        # Base64 encode stdout and stderr to safely pass them between steps
-        # Using encoded_stdout and encoded_stderr to differentiate from actual stdout/stderr
-        echo "encoded_stdout=$(cat "$stdout_file" | base64 -w 0)" >> $GITHUB_OUTPUT
-        echo "encoded_stderr=$(cat "$stderr_file" | base64 -w 0)" >> $GITHUB_OUTPUT
+        comment_pr: "true"
 
-        # Display output for visibility during the run
-        cat "$stdout_file"
-        cat "$stderr_file" >&2
-
-        # Clean up temp files
-        rm -f "$stdout_file" "$stderr_file"
-
-        exit $EXIT_CODE
-      continue-on-error: true
-
-    - name: Write Apply output to file
-      id: output
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: |
-        touch apply.log
-
-        # Decode the base64-encoded outputs and write to log file
-        # This prevents shell interpretation issues since base64 only contains safe characters
-        echo "${{ steps.apply.outputs.encoded_stdout }}" | base64 --decode >> apply.log
-        echo "${{ steps.apply.outputs.encoded_stderr }}" | base64 --decode >> apply.log
-
-        echo "filename=apply.log" >> $GITHUB_OUTPUT
-
-        EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-        summary=$(grep "Apply complete" apply.log)
-        echo "summary<<$EOF" >> "$GITHUB_OUTPUT"
-        echo "$summary" >> "$GITHUB_OUTPUT"
-        echo "$EOF" >> "$GITHUB_OUTPUT"
-
-    - name: Generate s3 key name
-      id: s3
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: |
-        # Download hcl2json
-        curl -Lo hcl2json $(curl -s https://api.github.com/repos/tmccombs/hcl2json/releases | jq -r '.[] | select(.tag_name == "v0.5.0").assets[] | select(.name == "hcl2json_linux_amd64").browser_download_url')
-        chmod +x hcl2json
-
-        # Get s3 bucket and key by converting terraform backend config to json
-        json=$(./hcl2json *.tf)
-
-        [[ -z "${{ inputs.s3-bucket }}" ]] \
-          && s3_bucket=$(echo $json | jq -r '.terraform[0].backend.s3[0].bucket') \
-          || s3_bucket=${{ inputs.s3-bucket }}
-
-        [[ -z "${{ inputs.s3-key }}" ]] \
-          && s3_key=$(echo $json | jq -r '.terraform[0].backend.s3[0].key') \
-          || s3_key=${{ inputs.s3-key }}
-
-        echo "S3 bucket: $s3_bucket"
-        echo "S3 key: $s3_key"
-
-        # Generate s3 key name
-        key="apply_logs/${{ github.repository }}/pr-${{ steps.pr_id.outputs.number }}/$(date -u +'%Y-%m-%d/apply-%Y-%m-%dT%H:%M:%SZ.log')"
-        echo "S3 key name: $key"
-
-        # Copy terraform apply log to s3
-        s3_url="s3://${s3_bucket}/${s3_key}/${key}"
-        aws s3 cp ${{ steps.output.outputs.filename }} $s3_url
-
-        echo "s3_bucket=$s3_bucket" >> $GITHUB_OUTPUT
-        echo "s3_key=$s3_key/$key" >> $GITHUB_OUTPUT
-        echo "s3_url=$s3_url" >> $GITHUB_OUTPUT
-
-    - name: Comment Apply output to PR
-      id: comment-apply
-      uses: peter-evans/create-or-update-comment@v2
-      with:
-        token: ${{ inputs.GITHUB_TOKEN }}
-        issue-number: ${{ steps.pr_id.outputs.number }}
-        body: |
-          Terraform Apply: ${{ steps.output.outputs.summary }}
-
-          Full log persisted at: [${{ steps.s3.outputs.s3_url}}](https://s3.console.aws.amazon.com/s3/object/${{ steps.s3.outputs.s3_bucket }}?prefix=${{ steps.s3.outputs.s3_key}})
-
-          <details open><summary>Show Output</summary>
-
-          ```
-          ${{ steps.apply.outputs.stdout }}
-          ${{ steps.apply.outputs.stderr }}
-
-          </details>
-          ```
-
-    - name: Create issue on apply failure
-      uses: actions/github-script@v6
-      if: steps.apply.conclusion == 'failure'
-      with:
-        script: |
-          var body = `Apply from PR ${{ steps.pr_id.outputs.number }} failed.
-
-            Please review the logs and take appropriate action.
-
-            Full log persisted at: [${{ steps.s3.outputs.s3_url}}](https://s3.console.aws.amazon.com/s3/object/${{ steps.s3.outputs.s3_bucket }}?prefix=${{ steps.s3.outputs.s3_key}})
-
-            <details open><summary>Show Output</summary>
-
-            \`\`\`
-            ${{ steps.apply.outputs.stdout }}
-            ${{ steps.apply.outputs.stderr }}
-            \`\`\`
-
-            </details>
-          `
-          github.rest.issues.create({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            title: '[Terraform Failure] Apply from PR ${{ steps.pr_id.outputs.number }} failed.',
-            body: body.substring(0, 65536),
-            labels: ['terraform-failure']
-          })
+        continue_on_error: "true"
 
     - name: Debug with TMATE if the debug environment variable is set to "true" and something failed
-      if: ${{ (failure() || steps.apply.outcome == 'failure') && inputs.debug == 'true' }}
+      if: ${{ failure() && inputs.debug == 'true' }}
       uses: mxschmitt/action-tmate@v3
 
     - name: Workflow Run Status
       shell: bash
-      if: steps.apply.outcome == 'failure'
+      if: steps.tf-via-pr.outputs.terraform_outcome == 'failure'
       run: exit 1
