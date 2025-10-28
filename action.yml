@@ -87,17 +87,36 @@ runs:
         echo "number=$number" >> $GITHUB_OUTPUT
         echo "This workflow run is associated with pull request ID: $number"
 
-    - name: Run Terraform via PR
+    - name: Run Terraform Apply via PR
       id: tf-via-pr
       uses: OP5dev/TF-via-PR@v13.7.1
       with:
+        # Core command - this does plan + apply internally
         command: apply
-        working-directory: ${{ inputs.working-directory }}
-        token: ${{ inputs.GITHUB_TOKEN }}
-        pr-number: ${{ steps.pr_id.outputs.number }}
-        comment-pr: "true"
-        arg-auto-approve: ${{ inputs.auto-approve == 'true' && '-auto-approve' || '' }}
-        arg-chdir: ${{ inputs.working-directory != '' && inputs.working-directory || '' }}
+
+        # Directory and workspace
+        path: ${{ inputs.working-directory }}
+        terraform_workspace: ${{ inputs.terraform-workspace }}
+
+        # GitHub integration
+        github_token: ${{ inputs.GITHUB_TOKEN }}
+        pull_request_id: ${{ steps.pr_id.outputs.number }}
+        comment_pr: "true"
+
+        # Terraform configuration
+        terraform_version: ${{ inputs.terraform-version }}
+        terraform_init_cli_options: ${{ inputs.terraform-init-flags }}
+        terraform_apply_cli_options: ${{ inputs.terraform-apply-flags }}
+
+        # Auto-approval
+        auto_approve: ${{ inputs.auto-approve }}
+
+        # S3 configuration (if you want persistence)
+        s3_bucket_name: ${{ inputs.s3-bucket }}
+        s3_object_key: ${{ inputs.s3-key }}
+
+        # Output handling
+        continue_on_error: "true"
 
     - name: Debug with TMATE if the debug environment variable is set to "true" and something failed
       if: ${{ failure() && inputs.debug == 'true' }}
