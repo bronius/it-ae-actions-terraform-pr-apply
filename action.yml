@@ -50,14 +50,19 @@ inputs:
 outputs:
   apply_output:
     description: The terraform apply output
-    value: ${{ steps.tf-via-pr.outputs.tf_output }}
+    value: ${{ steps.tf-via-pr.outputs.stdout }}
   s3_path:
     description: The S3 URL of the uploaded log file
-    value: ${{ steps.tf-via-pr.outputs.s3_url }}
+    value: ${{ steps.tf-via-pr.outputs.plan-url }}
 
 runs:
   using: composite
   steps:
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.terraform-version }}
+
     - name: Find if this push belonged to a PR
       if: github.event_name == 'push' && inputs.pr-id == ''
       uses: 8BitJonny/gh-get-current-pr@2.2.0
@@ -86,25 +91,13 @@ runs:
       id: tf-via-pr
       uses: OP5dev/TF-via-PR@v13.7.1
       with:
-        apply: "true"
-        path: ${{ inputs.working-directory }}
-
-        terraform_version: ${{ inputs.terraform-version }}
-        terraform_workspace: ${{ inputs.terraform-workspace }}
-        terraform_init_cli_options: ${{ inputs.terraform-init-flags }}
-        terraform_apply_cli_options: ${{ inputs.terraform-apply-flags }}
-
-        auto_approve: ${{ inputs.auto-approve }}
-
-        github_token: ${{ inputs.GITHUB_TOKEN }}
-        pull_request_id: ${{ steps.pr_id.outputs.number }}
-
-        s3_bucket_name: ${{ inputs.s3-bucket }}
-        s3_object_key: ${{ inputs.s3-key }}
-
-        comment_pr: "true"
-
-        continue_on_error: "true"
+        command: apply
+        working-directory: ${{ inputs.working-directory }}
+        token: ${{ inputs.GITHUB_TOKEN }}
+        pr-number: ${{ steps.pr_id.outputs.number }}
+        comment-pr: "true"
+        arg-auto-approve: ${{ inputs.auto-approve == 'true' && '-auto-approve' || '' }}
+        arg-chdir: ${{ inputs.working-directory != '' && inputs.working-directory || '' }}
 
     - name: Debug with TMATE if the debug environment variable is set to "true" and something failed
       if: ${{ failure() && inputs.debug == 'true' }}
@@ -112,5 +105,5 @@ runs:
 
     - name: Workflow Run Status
       shell: bash
-      if: steps.tf-via-pr.outputs.terraform_outcome == 'failure'
+      if: failure()
       run: exit 1
