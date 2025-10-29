@@ -23,7 +23,11 @@ inputs:
     required: false
     default: default
   terraform-init-flags:
-    description: CLI flags to use with terraform init
+    description: "(DEPRECATED) Ignored if not '-backend-config=' related. Use 'terraform-backend-config' input for backend config."
+    required: false
+    default: ""
+  terraform-backend-config:
+    description: Backend tfstate config to pass to terraform init
     required: false
     default: ""
   terraform-apply-flags:
@@ -96,6 +100,8 @@ runs:
 
         # Directory and workspace (using correct parameter names)
         working-directory: ${{ inputs.working-directory }}
+        arg-workspace: ${{ inputs.terraform-workspace != '' && inputs.terraform-workspace || 'default' }}
+        arg-backend-config: ${{ inputs.terraform-backend-config != '' && inputs.terraform-backend-config || (inputs.terraform-init-flags != '' && contains(inputs.terraform-init-flags, '-backend-config=') && split(split(inputs.terraform-init-flags, '-backend-config=')[1], ' ')[0]) || '' }}
 
         # GitHub integration (using correct parameter names)
         token: ${{ inputs.GITHUB_TOKEN }}
