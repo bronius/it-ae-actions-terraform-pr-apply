@@ -42,9 +42,10 @@ Currently, this action only supports terraform whose state is stored in s3. The 
 |          pr-id           | string |  false   |             |     Associate the run with a specific <br>pull request id. Defaults to finding <br>the ID from the merge commit.      |
 |        s3-bucket         | string |  false   |             |              Override s3 bucket to upload output <br>to. Defaults to the same as <br>the state backend.               |
 |          s3-key          | string |  false   |             |         Override s3 object key to upload <br>output to. Defaults to a subdirectory <br>of the statefile key.          |
-|  terraform-apply-flags   | string |  false   |             |                                      CLI flags to use with terraform <br>apply                                        |
+|  terraform-apply-flags   | string |  false   |             |          (DEPRECATED) Ignored if not '-var-file=' related. <br>Use 'terraform-var-file' input for var file.           |
 | terraform-backend-config | string |  false   |             |                                 Backend tfstate config to pass to <br>terraform init                                  |
 |   terraform-init-flags   | string |  false   |             | (DEPRECATED) Ignored if not '-backend-config=' related. <br>Use 'terraform-backend-config' input for backend config.  |
+|    terraform-var-file    | string |  false   |             |                                Terraform variable file to pass to <br>terraform apply                                 |
 |    terraform-version     | string |  false   | `"latest"`  |                                            Version of terraform to install                                            |
 |   terraform-workspace    | string |  false   | `"default"` |                                Terraform workspace to select. Must already <br>exist                                  |
 |    working-directory     | string |  false   |             |                                        Working directory for the `run` actions                                        |

@@ -30,8 +30,12 @@ inputs:
     description: Backend tfstate config to pass to terraform init
     required: false
     default: ""
+  terraform-var-file:
+    description: Terraform variable file to pass to terraform apply
+    required: false
+    default: ""
   terraform-apply-flags:
-    description: CLI flags to use with terraform apply
+    description: "(DEPRECATED) Ignored if not '-var-file=' related. Use 'terraform-var-file' input for var file."
     required: false
     default: ""
   s3-bucket:
@@ -102,6 +106,7 @@ runs:
         working-directory: ${{ inputs.working-directory }}
         arg-workspace: ${{ inputs.terraform-workspace != '' && inputs.terraform-workspace || 'default' }}
         arg-backend-config: ${{ inputs.terraform-backend-config != '' && inputs.terraform-backend-config || (inputs.terraform-init-flags != '' && contains(inputs.terraform-init-flags, '-backend-config=') && split(split(inputs.terraform-init-flags, '-backend-config=')[1], ' ')[0]) || '' }}
+        arg-var-file: ${{ inputs.terraform-var-file != '' && inputs.terraform-var-file || (inputs.terraform-apply-flags != '' && contains(inputs.terraform-apply-flags, '-var-file=') && split(split(inputs.terraform-apply-flags, '-var-file=')[1], ' ')[0]) || '' }}
 
         # GitHub integration (using correct parameter names)
         token: ${{ inputs.GITHUB_TOKEN }}
