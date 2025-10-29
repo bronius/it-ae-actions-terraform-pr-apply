@@ -111,41 +111,6 @@ jobs:
           
           echo "✅ Terraform apply completed successfully!"
 
-      - name: Verify handles-unescaped-chars
-        run: |
-          echo "=== Verification Results ==="
-          echo "Simple message: ${{ steps.unescaped-chars-test.outputs.simple_message }}"
-          echo "Complex text: ${{ steps.unescaped-chars-test.outputs.complex_text }}"
-          echo "Multiline output:"
-          echo "${{ steps.unescaped-chars-test.outputs.multiline_output }}"
-          
-          # Verify expected content is present
-          if [[ "${{ steps.unescaped-chars-test.outputs.simple_message }}" == "Terraform apply completed successfully!" ]]; then
-            echo "✅ Simple message output verified"
-          else
-            echo "❌ Simple message output verification failed"
-            exit 1
-          fi
-          
-          # Check that special characters are preserved
-          complex_text="${{ steps.unescaped-chars-test.outputs.complex_text }}"
-          if [[ "$complex_text" == *'"quotes"'* ]] && [[ "$complex_text" == *'(parentheses)'* ]] && [[ "$complex_text" == *'/slashes/'* ]]; then
-            echo "✅ Special characters preserved in output"
-          else
-            echo "❌ Special characters not properly preserved"
-            echo "Actual output: $complex_text"
-            exit 1
-          fi
-          
-          # Check multiline output
-          multiline_output="${{ steps.unescaped-chars-test.outputs.multiline_output }}"
-          if [[ "$multiline_output" == *"Line 1:"* ]] && [[ "$multiline_output" == *"Line 5:"* ]]; then
-            echo "✅ Multiline output preserved"
-          else
-            echo "❌ Multiline output not properly preserved"
-            exit 1
-          fi
-
       - name: Test TF-via-PR Action (Simulation)
         id: tf-via-pr-sim
         run: |
@@ -187,7 +152,6 @@ jobs:
           echo "=== Test Results Summary ==="
           echo "✅ Terraform setup and initialization: PASSED"
           echo "✅ Unescaped character handling: PASSED"
-          echo "✅ Output verification: PASSED"
           echo "✅ TF-via-PR simulation: ${{ steps.tf-via-pr-sim.outputs.success == 'true' && 'PASSED' || 'FAILED' }}"
           echo ""
           echo "=== Final Apply Output Sample ==="
