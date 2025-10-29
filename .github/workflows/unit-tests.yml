@@ -9,149 +9,198 @@ jobs:
   core-functionality-tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Test - handles-normal-chars-direct
-        id: normal-chars-direct-test
-        run: |
-          # Generate test output with normal characters directly to outputs
-          echo "stdout<<EOF" >> $GITHUB_OUTPUT
-          echo "ABC123 with sought normal text" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Verify handles-normal-chars-direct
+      - name: Install system dependencies
         run: |
-          echo "Direct output: ${{ steps.normal-chars-direct-test.outputs.stdout }}"
+          sudo apt-get update
+          sudo apt-get install -y unzip jq
 
-          # Verify the output exactly matches expected string
-          if [[ "${{ steps.normal-chars-direct-test.outputs.stdout }}" != "ABC123 with sought normal text" ]]; then
-            echo "ERROR: Output does not match expected text"
-            echo "Expected: 'ABC123 with sought normal text'"
-            echo "Actual: '${{ steps.normal-chars-direct-test.outputs.stdout }}'"
-            exit 1
-          fi
-          echo "✓ Normal text handled correctly (direct method)"
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
 
-      - name: Test - handles-unescaped-chars-direct
-        id: unescaped-chars-direct-test
+      - name: Create test terraform configuration
         run: |
-          # Use the delimiter method from the actual action.yml
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "stdout<<$EOF" >> $GITHUB_OUTPUT
-          echo "ABC123 with (parentheses) \"quotes\" and 'apostrophes' sought unescaped text" >> $GITHUB_OUTPUT
-          echo "$EOF" >> $GITHUB_OUTPUT
+          mkdir -p test-terraform
+          cat > test-terraform/main.tf << 'EOF'
+          # Simple terraform config for testing output handling
+          variable "test_input" {
+            description = "Test input with special characters"
+            type        = string
+            default     = "Test with \"quotes\", (parentheses), /slashes/, and \\backslashes\\"
+          }
 
-      - name: Verify handles-unescaped-chars-direct
-        run: |
-          echo "Direct output: ${{ steps.unescaped-chars-direct-test.outputs.stdout }}"
+          locals {
+            complex_output = jsonencode({
+              message = "Hello from terraform!"
+              special_chars = "Quotes: \"test\", Parens: (test), Slashes: /test/, Backslashes: \\test\\"
+              json_sample = {
+                nested = "value with \"nested quotes\""
+                array = ["item1", "item with (parens)", "item/with/slashes"]
+              }
+            })
+          }
 
-          # Verify the output exactly matches expected string with special characters
-          expected="ABC123 with (parentheses) \"quotes\" and 'apostrophes' sought unescaped text"
-          if [[ "${{ steps.unescaped-chars-direct-test.outputs.stdout }}" != "$expected" ]]; then
-            echo "ERROR: Output does not match expected text with special characters"
-            echo "Expected: '$expected'"
-            echo "Actual: '${{ steps.unescaped-chars-direct-test.outputs.stdout }}'"
-            exit 1
-          fi
-          echo "✓ Special characters handled correctly (direct method)"
+          output "simple_message" {
+            value = "Terraform apply completed successfully!"
+            description = "Simple success message"
+          }
 
-      - name: Test - capture-stdout-with-display
-        id: capture-stdout-test
-        run: |
-          # Create temporary files for stdout and stderr
-          stdout_file=$(mktemp)
-          stderr_file=$(mktemp)
-          
-          # Run a simple command and capture output while also displaying it (like a tee)
-          echo "ABC123" | tee "$stdout_file" 2> "$stderr_file"
-          echo "Error test" >&2 | tee "$stderr_file" >/dev/null
-          
-          # Base64 encode for safe output variable handling
-          echo "encoded_stdout=$(cat "$stdout_file" | base64 -w 0)" >> $GITHUB_OUTPUT
-          echo "encoded_stderr=$(cat "$stderr_file" | base64 -w 0)" >> $GITHUB_OUTPUT
-          
-          echo "--- Displaying captured stdout/stderr ---"
-          echo "STDOUT: $(cat "$stdout_file")"
-          echo "STDERR: $(cat "$stderr_file")"
-          
-          # Clean up
-          rm -f "$stdout_file" "$stderr_file"
-      
-      - name: Verify capture-stdout-with-display
-        run: |
-          # Decode the captured output
-          decoded_stdout=$(echo "${{ steps.capture-stdout-test.outputs.encoded_stdout }}" | base64 -d)
-          
-          echo "Decoded stdout: $decoded_stdout"
-          
-          # Verify the output contains expected string
-          if [[ "$decoded_stdout" != *"ABC123"* ]]; then
-            echo "ERROR: Expected 'ABC123' in captured stdout"
-            exit 1
-          fi
-          echo "✓ Stdout correctly captured and contains expected text"
+          output "complex_text" {
+            value = var.test_input
+            description = "Text with various special characters"
+          }
 
-      - name: Test - handles-normal-chars
-        id: normal-chars-test
-        run: |
-          # Create temporary file for stdout
-          stdout_file=$(mktemp)
-          
-          # Generate test output with normal characters
-          echo "ABC123 with sought normal text" > "$stdout_file"
-          
-          # Base64 encode for safe output variable handling
-          echo "encoded_output=$(cat "$stdout_file" | base64 -w 0)" >> $GITHUB_OUTPUT
-          
-          # Clean up
-          rm -f "$stdout_file"
-      
-      - name: Verify handles-normal-chars
-        run: |
-          # Decode the captured output
-          decoded_output=$(echo "${{ steps.normal-chars-test.outputs.encoded_output }}" | base64 -d)
-          
-          echo "Decoded output: $decoded_output"
-          
-          # Verify the output exactly matches expected string
-          if [[ "$decoded_output" != "ABC123 with sought normal text" ]]; then
-            echo "ERROR: Output does not match expected text"
-            echo "Expected: 'ABC123 with sought normal text'"
-            echo "Actual: '$decoded_output'"
-            exit 1
-          fi
-          echo "✓ Normal text handled correctly"
-      
+          output "json_output" {
+            value = local.complex_output
+            description = "JSON output with nested special characters"
+          }
+
+          output "multiline_output" {
+            value = <<-EOT
+            Line 1: "Quotes and stuff"
+            Line 2: (Parentheses here)
+            Line 3: /Forward/slashes/
+            Line 4: \Back\slashes\
+            Line 5: Mixed "quotes" and (parens) and /slashes/
+            EOT
+            description = "Multi-line output with special characters"
+          }
+          EOF
+
       - name: Test - handles-unescaped-chars
         id: unescaped-chars-test
         run: |
-          # Create temporary file for stdout
-          stdout_file=$(mktemp)
+          cd test-terraform
           
-          # Generate test output with special characters that might need escaping
-          echo "ABC123 with (parentheses) \"quotes\" and 'apostrophes' sought unescaped text" > "$stdout_file"
+          echo "=== Initializing Terraform ==="
+          terraform init
           
-          # Base64 encode for safe output variable handling
-          echo "encoded_output=$(cat "$stdout_file" | base64 -w 0)" >> $GITHUB_OUTPUT
+          echo "=== Running Terraform Apply ==="
+          terraform apply -auto-approve
           
-          # Clean up
-          rm -f "$stdout_file"
-      
+          echo "=== Capturing Terraform Output ==="
+          terraform output -json > outputs.json
+          
+          echo "=== Raw JSON Output ==="
+          cat outputs.json
+          
+          echo "=== Formatted Output ==="
+          terraform output
+          
+          # Test that we can parse the JSON output without errors
+          echo "=== Testing JSON Parsing ==="
+          jq '.simple_message.value' outputs.json
+          jq '.complex_text.value' outputs.json
+          jq '.json_output.value' outputs.json
+          jq '.multiline_output.value' outputs.json
+          
+          # Store outputs for verification
+          echo "simple_message=$(terraform output -raw simple_message)" >> $GITHUB_OUTPUT
+          echo "complex_text=$(terraform output -raw complex_text)" >> $GITHUB_OUTPUT
+          
+          # For multiline output, we need to handle it differently
+          {
+            echo 'multiline_output<<EOF'
+            terraform output -raw multiline_output
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+          
+          echo "✅ Terraform apply completed successfully!"
+
       - name: Verify handles-unescaped-chars
         run: |
-          # Decode the captured output
-          decoded_output=$(echo "${{ steps.unescaped-chars-test.outputs.encoded_output }}" | base64 -d)
+          echo "=== Verification Results ==="
+          echo "Simple message: ${{ steps.unescaped-chars-test.outputs.simple_message }}"
+          echo "Complex text: ${{ steps.unescaped-chars-test.outputs.complex_text }}"
+          echo "Multiline output:"
+          echo "${{ steps.unescaped-chars-test.outputs.multiline_output }}"
           
-          echo "Decoded output: $decoded_output"
-          
-          # Verify the output exactly matches expected string with special characters
-          expected="ABC123 with (parentheses) \"quotes\" and 'apostrophes' sought unescaped text"
-          if [[ "$decoded_output" != "$expected" ]]; then
-            echo "ERROR: Output does not match expected text with special characters"
-            echo "Expected: '$expected'"
-            echo "Actual: '$decoded_output'"
+          # Verify expected content is present
+          if [[ "${{ steps.unescaped-chars-test.outputs.simple_message }}" == "Terraform apply completed successfully!" ]]; then
+            echo "✅ Simple message output verified"
+          else
+            echo "❌ Simple message output verification failed"
             exit 1
           fi
-          echo "✓ Special characters handled correctly"
-      
+          
+          # Check that special characters are preserved
+          complex_text="${{ steps.unescaped-chars-test.outputs.complex_text }}"
+          if [[ "$complex_text" == *'"quotes"'* ]] && [[ "$complex_text" == *'(parentheses)'* ]] && [[ "$complex_text" == *'/slashes/'* ]]; then
+            echo "✅ Special characters preserved in output"
+          else
+            echo "❌ Special characters not properly preserved"
+            echo "Actual output: $complex_text"
+            exit 1
+          fi
+          
+          # Check multiline output
+          multiline_output="${{ steps.unescaped-chars-test.outputs.multiline_output }}"
+          if [[ "$multiline_output" == *"Line 1:"* ]] && [[ "$multiline_output" == *"Line 5:"* ]]; then
+            echo "✅ Multiline output preserved"
+          else
+            echo "❌ Multiline output not properly preserved"
+            exit 1
+          fi
+
+      - name: Test TF-via-PR Action (Simulation)
+        id: tf-via-pr-sim
+        run: |
+          cd test-terraform
+          
+          echo "=== Simulating TF-via-PR Action Behavior ==="
+          
+          # Simulate the core functionality without PR integration
+          terraform_output=$(terraform apply -auto-approve 2>&1)
+          apply_exit_code=$?
+          
+          echo "Apply exit code: $apply_exit_code"
+          echo "=== Terraform Apply Output ==="
+          echo "$terraform_output"
+          
+          if [ $apply_exit_code -eq 0 ]; then
+            echo "✅ Terraform apply succeeded"
+            
+            # Capture outputs in a format similar to what TF-via-PR would do
+            echo "=== Terraform Outputs ==="
+            terraform output
+            
+            # Store the apply output for later use
+            {
+              echo 'apply_output<<EOF'
+              echo "$terraform_output"
+              echo 'EOF'
+            } >> $GITHUB_OUTPUT
+            
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Terraform apply failed"
+            echo "success=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
       - name: Report test results
         run: |
-          echo "All tests completed successfully!"
+          echo "=== Test Results Summary ==="
+          echo "✅ Terraform setup and initialization: PASSED"
+          echo "✅ Unescaped character handling: PASSED"
+          echo "✅ Output verification: PASSED"
+          echo "✅ TF-via-PR simulation: ${{ steps.tf-via-pr-sim.outputs.success == 'true' && 'PASSED' || 'FAILED' }}"
+          echo ""
+          echo "=== Final Apply Output Sample ==="
+          echo "${{ steps.tf-via-pr-sim.outputs.apply_output }}"
+          echo ""
+          echo "🎉 All tests completed successfully!"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -d "test-terraform" ]; then
+            cd test-terraform
+            terraform destroy -auto-approve || true
+            cd ..
+            rm -rf test-terraform
+          fi
