@@ -61,14 +61,16 @@ outputs:
     value: ${{ steps.tf-via-pr.outputs.stdout }}
   s3_path:
     description: The S3 URL of the uploaded log file
-    value: ${{ steps.s3.outputs.s3_url }}
-  plan_url:
-    description: URL of the plan file artifact.
     value: ${{ steps.tf-via-pr.outputs.plan-url }}
 
 runs:
   using: composite
   steps:
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.terraform-version }}
+
     - name: Find if this push belonged to a PR
       if: github.event_name == 'push' && inputs.pr-id == ''
       uses: 8BitJonny/gh-get-current-pr@2.2.0
@@ -92,11 +94,6 @@ runs:
 
         echo "number=$number" >> $GITHUB_OUTPUT
         echo "This workflow run is associated with pull request ID: $number"
-
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: ${{ inputs.terraform-version }}
 
     - name: Run Terraform Apply via PR
       id: tf-via-pr
@@ -123,49 +120,14 @@ runs:
         arg-chdir: ${{ inputs.working-directory }}
 
         # Plan handling - key fix here
-        upload-plan: ${{ inputs.s3-bucket != '' && inputs.s3-key != '' && true || false }}
-        preserve-plan: ${{ inputs.s3-bucket != '' && inputs.s3-key != '' && true || false }}
+        upload-plan: false
+        preserve-plan: false
+        plan-file: ""
 
         # Output formatting
         format: false
         expand-diff: false
         expand-summary: false
-
-    - name: Generate s3 key name
-      id: s3
-      if: ${{ steps.tf-via-pr.outputs.plan-url != '' }}
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: |
-        # Download hcl2json
-        curl -Lo hcl2json $(curl -s https://api.github.com/repos/tmccombs/hcl2json/releases | jq -r '.[] | select(.tag_name == "v0.5.0").assets[] | select(.name == "hcl2json_linux_amd64").browser_download_url')
-        chmod +x hcl2json
-
-        # Get s3 bucket and key by converting terraform backend config to json
-        json=$(./hcl2json *.tf)
-
-        [[ -z "${{ inputs.s3-bucket }}" ]] \
-          && s3_bucket=$(echo $json | jq -r '.terraform[0].backend.s3[0].bucket') \
-          || s3_bucket=${{ inputs.s3-bucket }}
-
-        [[ -z "${{ inputs.s3-key }}" ]] \
-          && s3_key=$(echo $json | jq -r '.terraform[0].backend.s3[0].key') \
-          || s3_key=${{ inputs.s3-key }}
-
-        echo "S3 bucket: $s3_bucket"
-        echo "S3 key: $s3_key"
-
-        # Generate s3 key name
-        key="apply_logs/${{ github.repository }}/pr-${{ steps.pr_id.outputs.number }}/$(date -u +'%Y-%m-%d/apply-%Y-%m-%dT%H:%M:%SZ.log')"
-        echo "S3 key name: $key"
-
-        # Copy terraform apply log to s3
-        s3_url="s3://${s3_bucket}/${s3_key}/${key}"
-        aws s3 cp ${{ inputs.working-directory }}/apply.log $s3_url
-
-        echo "s3_bucket=$s3_bucket" >> $GITHUB_OUTPUT
-        echo "s3_key=$s3_key/$key" >> $GITHUB_OUTPUT
-        echo "s3_url=$s3_url" >> $GITHUB_OUTPUT
 
     - name: Debug with TMATE if the debug environment variable is set to "true" and something failed
       if: ${{ failure() && inputs.debug == 'true' }}
