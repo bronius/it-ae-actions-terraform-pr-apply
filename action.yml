@@ -98,41 +98,6 @@ runs:
       with:
         terraform_version: ${{ inputs.terraform-version }}
 
-    - name: Parse legacy terraform flags
-      shell: bash
-      id: parse_flags
-      run: |
-        # Parse backend config from deprecated terraform-init-flags
-        backend_config=""
-        if [[ -n "${{ inputs.terraform-backend-config }}" ]]; then
-          backend_config="${{ inputs.terraform-backend-config }}"
-        elif [[ -n "${{ inputs.terraform-init-flags }}" ]] && [[ "${{ inputs.terraform-init-flags }}" == *"-backend-config="* ]]; then
-          # Extract the backend config value from the flags
-          init_flags="${{ inputs.terraform-init-flags }}"
-          # Find the backend-config parameter and extract its value
-          if [[ $init_flags =~ -backend-config=([^[:space:]]+) ]]; then
-            backend_config="${BASH_REMATCH[1]}"
-          fi
-        fi
-
-        # Parse var file from deprecated terraform-apply-flags
-        var_file=""
-        if [[ -n "${{ inputs.terraform-var-file }}" ]]; then
-          var_file="${{ inputs.terraform-var-file }}"
-        elif [[ -n "${{ inputs.terraform-apply-flags }}" ]] && [[ "${{ inputs.terraform-apply-flags }}" == *"-var-file="* ]]; then
-          # Extract the var file value from the flags
-          apply_flags="${{ inputs.terraform-apply-flags }}"
-          # Find the var-file parameter and extract its value
-          if [[ $apply_flags =~ -var-file=([^[:space:]]+) ]]; then
-            var_file="${BASH_REMATCH[1]}"
-          fi
-        fi
-
-        echo "backend_config=$backend_config" >> $GITHUB_OUTPUT
-        echo "var_file=$var_file" >> $GITHUB_OUTPUT
-        echo "Parsed backend config: $backend_config"
-        echo "Parsed var file: $var_file"
-
     - name: Run Terraform Apply via PR
       id: tf-via-pr
       uses: OP5dev/TF-via-PR@v13.7.1
@@ -143,8 +108,8 @@ runs:
         # Directory and workspace (using correct parameter names)
         working-directory: ${{ inputs.working-directory }}
         arg-workspace: ${{ inputs.terraform-workspace != '' && inputs.terraform-workspace || 'default' }}
-        arg-backend-config: ${{ steps.parse_flags.outputs.backend_config }}
-        arg-var-file: ${{ steps.parse_flags.outputs.var_file }}
+        arg-backend-config: ${{ inputs.terraform-backend-config != '' && inputs.terraform-backend-config || (inputs.terraform-init-flags != '' && contains(inputs.terraform-init-flags, '-backend-config=') && split(split(inputs.terraform-init-flags, '-backend-config=')[1], ' ')[0]) || '' }}
+        arg-var-file: ${{ inputs.terraform-var-file != '' && inputs.terraform-var-file || (inputs.terraform-apply-flags != '' && contains(inputs.terraform-apply-flags, '-var-file=') && split(split(inputs.terraform-apply-flags, '-var-file=')[1], ' ')[0]) || '' }}
 
         # GitHub integration (using correct parameter names)
         token: ${{ inputs.GITHUB_TOKEN }}
