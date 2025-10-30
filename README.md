@@ -59,6 +59,7 @@ Currently, this action only supports terraform whose state is stored in s3. The 
 |    OUTPUT    |  TYPE  |               DESCRIPTION                |
 |--------------|--------|------------------------------------------|
 | apply_output | string |        The terraform apply output        |
+|   plan_url   | string |      URL of the plan file artifact.      |
 |   s3_path    | string | The S3 URL of the uploaded <br>log file  |
 
 <!-- AUTO-DOC-OUTPUT:END -->
